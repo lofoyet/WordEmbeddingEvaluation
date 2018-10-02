@@ -1,6 +1,6 @@
 r"""Evaluate word embedding scripts.
 
-python lib/word_embedding_evaluator.py \
+python evaluate_word_embedding.py \
     --out_dir=output/eval\
     --emb_path=/tmp/glove.twitter.27B.100d.txt\
     --csv_separator=" "\
