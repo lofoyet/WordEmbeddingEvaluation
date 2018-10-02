@@ -41,7 +41,8 @@ from lib.word_embedding_evaluator import Scheduler  # noqa
     "--evaluators",
     type=str,
     help="Tasks to run, comma-separate each task",
-    default="word_similarity_353",
+    default="word_similarity_353,"
+            "doc_classification_20_news",
     required=True)
 def word_embedding_evaluate(
         out_dir, emb_path, csv_separator, quoting, evaluators):
