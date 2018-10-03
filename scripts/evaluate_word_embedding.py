@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 r"""Evaluate word embedding scripts.
 
 python evaluate_word_embedding.py \

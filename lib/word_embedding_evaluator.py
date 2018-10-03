@@ -141,7 +141,8 @@ class WordSimilarity353(WordSimilarity):
     """
     Similarity evaluation using 353 dataset.
 
-    Data contains human-evaluated word pair similarity"""
+    Data contains human-evaluated word pair similarity
+    """
 
     file_params = {
         "word_similarity_file":
@@ -251,7 +252,7 @@ class DocumentClassifer(BaseEvalClass):
         """Init."""
         super(DocumentClassifer, self).__init__()
         self._init_params(kwargs)
-        self.eval_file = "{}-{}.csv".format(self.task_id, self.uuid)
+        self.eval_file = "{}-{}.csv".format(self.seq_id, self.tid)
         self.output_path = \
             os.path.join(self.output_dir, self.eval_folder, self.eval_file)
         # classification metrics
