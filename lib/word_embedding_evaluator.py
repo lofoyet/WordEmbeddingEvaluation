@@ -50,7 +50,9 @@ class BaseEvalClass(object):
 
     def __init__(self):
         """Init all metrics in dict."""
+        # dict to store all relevant info
         self.metrics = {}
+        # task id, specific to each evaluation
         self.tid = str(uuid.uuid1())
 
     def _init_params(self, params=None):
@@ -80,26 +82,38 @@ class WordSimilarity(BaseEvalClass):
         """Init."""
         super(WordSimilarity, self).__init__()
         self._init_params(kwargs)
+        # seq_id is unique to evalution type
+        # tid is unique to each task
         self.eval_file = "{}-{}.csv".format(self.seq_id, self.tid)
         self.output_path = \
             os.path.join(self.output_dir, self.eval_folder, self.eval_file)
+        # mean squared error
         self.metrics["mse"] = None
+        # total error, sum(y_true - y_pred)^2
         self.metrics["error"] = None
+        # number of comparison
         self.metrics["size"] = None
 
     def prepare(self):
-        """Prepare WordSimilarity-353 test data."""
+        """Prepare Word Similaritytest data."""
         raise NotImplementedError
 
     def evaluate(self, embedding):
         """Evaluate by calculating correlation scores."""
+        # select words in embedding that exist in comparison pairs
         mask = embedding[0].isin(self.pairs)
+        # because each task may use different words, it is necessary
+        # to keep a copy for specific task
         embedding = embedding[mask].copy().reset_index(drop=True)
+        # first col is words, rest are vectors
         words, embedding_vec = \
             embedding.iloc[:, 0], embedding.iloc[:, 1:].values
+        # word to number of line
         words_to_index = {w: i for i, w in words.iteritems()}
+        # calculate cosine similarity
         corr = np.corrcoef(embedding_vec)  # cannot be too large
         self.metrics["error"] = 0
+        # write as csv format, better if use csv.writer
         self.results = [u"word1,word2,human_score,emb_score\n"]
         for word1 in self.pairs:
             for word2 in self.pairs[word1]:
@@ -124,7 +138,10 @@ class WordSimilarity(BaseEvalClass):
 
 
 class WordSimilarity353(WordSimilarity):
-    """Similarity evaluation."""
+    """
+    Similarity evaluation using 353 dataset.
+
+    Data contains human-evaluated word pair similarity"""
 
     file_params = {
         "word_similarity_file":
@@ -183,7 +200,9 @@ class TfidfEmbeddingVectorizer(BaseEstimator):
         """Init."""
         self.word2index = word2index
         self.embedding = embedding
+        # infrequent word index
         self.unk_index = unk_index
+        # size of total vocab
         self.dim = self.embedding.shape[1]
 
     def fit(self, train_docs):
@@ -210,8 +229,10 @@ class TfidfEmbeddingVectorizer(BaseEstimator):
                 weighted_vector = weight * vector
                 word_vectors.append(weighted_vector)
             if word_vectors:
+                # mean of vectors
                 word_vectors = np.mean(word_vectors, axis=0)
             else:
+                # if doc is empty, use 0 vector
                 word_vectors = np.zeros(self.dim)
             doc_vectors.append(word_vectors)
         doc_vectors = np.array(doc_vectors)
@@ -233,11 +254,12 @@ class DocumentClassifer(BaseEvalClass):
         self.eval_file = "{}-{}.csv".format(self.task_id, self.uuid)
         self.output_path = \
             os.path.join(self.output_dir, self.eval_folder, self.eval_file)
-
+        # classification metrics
         self.metrics["confusion_matrix"] = None
         self.metrics["accuracy"] = None
         self.metrics["recall"] = None
         self.metrics["precision"] = None
+        # size of training data
         self.metrics["train_size"] = None
         self.metrics["test_size"] = None
 
@@ -252,7 +274,6 @@ class DocumentClassifer(BaseEvalClass):
         self.vectorizer.fit(train_x)
         train_x = self.vectorizer.transform(train_x)
         test_x = self.vectorizer.transform(test_x)
-        # normalize to same scale
         self.model = MLPClassifier(
             learning_rate="invscaling",
             max_iter=1000)
@@ -279,15 +300,16 @@ class DocumentClassifer(BaseEvalClass):
 
     def save(self):
         """Save predictions."""
+        # each classification task might require specific results
         pass
 
 
-class NewsGroups20Classifer20(DocumentClassifer):
+class NewsGroups20Classifer(DocumentClassifer):
     """Classification evaluation on pretrained embedding."""
 
     file_params = {
         "classes":
-            [
+            [  # a sample of dataset
                 "comp.sys.mac.hardware",
                 "rec.sport.baseball",
                 "sci.med",
@@ -296,7 +318,7 @@ class NewsGroups20Classifer20(DocumentClassifer):
             ],
         "train_ratio": 0.6,
         "eval_folder":
-            "NewsGroups20Classifer20",
+            "NewsGroups20Classifer",
         "web_source":
             "http://qwone.com/~jason/20Newsgroups/20news-18828.tar.gz"
     }
@@ -304,7 +326,7 @@ class NewsGroups20Classifer20(DocumentClassifer):
     def __init__(self, **kwargs):
         """Init."""
         kwargs.update(self.file_params)
-        super(NewsGroups20Classifer20, self).__init__(**kwargs)
+        super(NewsGroups20Classifer, self).__init__(**kwargs)
 
     def prepare(self):
         """Prepare training data."""
@@ -312,23 +334,27 @@ class NewsGroups20Classifer20(DocumentClassifer):
         tokenizer = TweetTokenizer()
         data_base_dir = os.path.join(DATA_PATH, "20news-18828")
         self.data = []
+        # each class_dir has data for that class
+        # each file under class_dir is one doc for that class
         for label, class_ in enumerate(self.classes):  # find class article
             class_dir = os.path.join(data_base_dir, class_)
             for file_ in os.listdir(class_dir):
-                if not file_.isdigit():  # valid files are digit like
+                if not file_.isdigit():  # valid files are digit-like
                     continue
                 file_path = os.path.join(class_dir, file_)
                 with open(file_path, "rb") as f:
-                    texts = f.readlines()[2:]  # strip first two header lines
+                    # strip first two header lines
+                    texts = f.readlines()[2:]
                 texts = [
                     clean_text(text.decode("utf-8", errors="ignore"))
                     for text in texts
                 ]
+                # because each text is one line of one doc, so just +=
                 tokens = []
                 for text in texts:
                     tokens += tokenizer.tokenize(text)
                 self.data.append([tokens, label])
-        # split into train and test
+        # randomly split into train and test
         TRAIN_RANDOM.shuffle(self.data)
         total_len = len(self.data)
         self.metrics["train_size"] = train_size = int(total_len * 0.6)
@@ -340,10 +366,9 @@ class NewsGroups20Classifer20(DocumentClassifer):
 class Scheduler(object):
     """The class to evaluate word embedding."""
 
-    _defined_tasks = [
-        ["word_similarity_353", WordSimilarity353]
-        ["doc_classification_20_news",
-            NewsGroups20Classifer20],
+    _defined_tasks = [  # every time a new task is added, need to name here
+        ["word_similarity_353", WordSimilarity353],
+        ["doc_classification_20_news", NewsGroups20Classifer],
     ]
     defined_tasks = collections.OrderedDict()
     for task_name, task in _defined_tasks:
@@ -378,6 +403,8 @@ class Scheduler(object):
 
     def add_tasks(self, *args):
         """Add tasks to do."""
+        # args are task names in list
+        # e.g. ["word_similarity_353", "doc_classification_20_news"]
         self.registered_tasks = collections.OrderedDict()
         for seq_id, (task_name, task) in \
                 enumerate(self.defined_tasks.iteritems()):
