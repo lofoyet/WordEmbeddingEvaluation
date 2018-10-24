@@ -45,7 +45,7 @@ from lib.word_embedding_evaluator import Scheduler  # noqa
     default="word_similarity_353,"
             "doc_classification_20_news",
     required=True)
-def word_embedding_evaluate(
+def main(
         out_dir, emb_path, csv_separator, quoting, evaluators):
     """Main body of function."""
     evaluators = evaluators.split(",")
@@ -56,4 +56,4 @@ def word_embedding_evaluate(
 
 
 if __name__ == "__main__":
-    word_embedding_evaluate()
+    main()
